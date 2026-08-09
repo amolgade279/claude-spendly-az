@@ -36,6 +36,16 @@ def profile():
     return "Profile page — coming in Step 4"
 
 
+@app.route("/terms")
+def terms():
+    return "Terms and Conditions — coming soon"
+
+
+@app.route("/privacy")
+def privacy():
+    return "Privacy Policy — coming soon"
+
+
 @app.route("/expenses/add")
 def add_expense():
     return "Add expense — coming in Step 7"
