@@ -38,12 +38,12 @@ def profile():
 
 @app.route("/terms")
 def terms():
-    return "Terms and Conditions — coming soon"
+    return render_template("terms.html")
 
 
 @app.route("/privacy")
 def privacy():
-    return "Privacy Policy — coming soon"
+    return render_template("privacy.html")
 
 
 @app.route("/expenses/add")
