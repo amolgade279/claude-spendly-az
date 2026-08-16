@@ -170,3 +170,128 @@ def test_post_register_duplicate_email_shows_exists_error_without_duplicate_row(
     conn.close()
 
     assert count == 1
+
+
+def test_get_login_renders_without_error(client):
+    resp = client.get("/login")
+    assert resp.status_code == 200
+    assert b"auth-error" not in resp.data
+
+
+def test_post_login_valid_credentials_sets_session_user_id(client):
+    client.post("/login", data={
+        "email": "demo@example.com",
+        "password": "Password123",
+    })
+
+    conn = get_db()
+    demo_id = conn.execute("SELECT id FROM users WHERE email = ?", ("demo@example.com",)).fetchone()[0]
+    conn.close()
+
+    with client.session_transaction() as sess:
+        assert sess.get("user_id") == demo_id
+
+
+def test_post_login_valid_credentials_redirects_to_landing(client):
+    resp = client.post("/login", data={
+        "email": "demo@example.com",
+        "password": "Password123",
+    })
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/")
+
+
+def test_post_login_nonexistent_email_shows_invalid_error(client):
+    resp = client.post("/login", data={
+        "email": _unique_email(),
+        "password": "Password123",
+    })
+
+    assert resp.status_code == 200
+    assert b"Invalid email or password." in resp.data
+
+    with client.session_transaction() as sess:
+        assert sess.get("user_id") is None
+
+
+def test_post_login_wrong_password_shows_invalid_error(client):
+    resp = client.post("/login", data={
+        "email": "demo@example.com",
+        "password": "WrongPassword123",
+    })
+
+    assert resp.status_code == 200
+    assert b"Invalid email or password." in resp.data
+
+    with client.session_transaction() as sess:
+        assert sess.get("user_id") is None
+
+
+def test_get_logout_clears_session(client):
+    client.post("/login", data={
+        "email": "demo@example.com",
+        "password": "Password123",
+    })
+
+    client.get("/logout")
+
+    with client.session_transaction() as sess:
+        assert sess.get("user_id") is None
+
+
+def test_get_logout_redirects_to_login(client):
+    resp = client.get("/logout")
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/login")
+
+
+def test_get_logout_without_active_session_succeeds(client):
+    resp = client.get("/logout")
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/login")
+
+
+def test_navbar_shows_signin_when_logged_out(client):
+    resp = client.get("/")
+
+    assert b"Sign in" in resp.data
+    assert b"Log out" not in resp.data
+
+
+def test_navbar_shows_logout_when_logged_in(client):
+    client.post("/login", data={
+        "email": "demo@example.com",
+        "password": "Password123",
+    })
+
+    resp = client.get("/")
+
+    assert b"Log out" in resp.data
+    assert b"Sign in" not in resp.data
+
+
+def test_get_login_when_already_logged_in_redirects_to_landing(client):
+    client.post("/login", data={
+        "email": "demo@example.com",
+        "password": "Password123",
+    })
+
+    resp = client.get("/login", follow_redirects=False)
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/")
+
+
+def test_get_register_when_already_logged_in_redirects_to_landing(client):
+    client.post("/login", data={
+        "email": "demo@example.com",
+        "password": "Password123",
+    })
+
+    resp = client.get("/register", follow_redirects=False)
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/")
